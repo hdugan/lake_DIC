@@ -1,5 +1,6 @@
 library(tidyverse)
-source('lake_DIC.R')
+source('lake_DIC.R') # bicarbonate function
+
 # Lake locations
 lakelocations = data.frame(lakeid = c('AL','BM','CB','CL','SP','TB','TL','ME','MO','WI','FI'),
                            Lake = c("Allequash Lake", "Big Muskellunge Lake", 
@@ -11,6 +12,8 @@ lakelocations = data.frame(lakeid = c('AL','BM','CB','CL','SP','TB','TL','ME','M
                                     -89.686283, -89.665017, -89.40545, -89.36086, -89.42499, 
                                     -89.65173)) 
 
+
+###################### DOWNLOAD NTL-LTER DATA FROM EDI ######################
 # doi:10.6073/pasta/a457e305538a0d8e669b58bb6f35721f
 # Package ID: knb-lter-ntl.2.34 Cataloging System:https://pasta.edirepository.org.
 # Data set title: North Temperate Lakes LTER: Chemical Limnology of Primary Study Lakes: Major Ions 1981 - current.
@@ -37,7 +40,9 @@ infile1 <- tempfile()
 download.file(inUrl3, infile1, method="curl")
 temp <- read_csv(infile1)
 
-# Clean data flag
+#############################################################################
+
+# Clean data by removing flagged data 
 LTERtemp = 
   temp %>% select(lakeid, sampledate, depth, rep, wtemp) |> 
   group_by(lakeid, sampledate, depth) |> 
@@ -74,11 +79,11 @@ ph.wide = ph.long |> pivot_wider(names_from = item, values_from = value, values_
   group_by(lakeid, sampledate, depth) |> 
   summarise(across(ph:dic, mean, na.rm = T))
 
-# Join data
+# Join dataframes together
 df = ions.wide |> inner_join(ph.wide) |> 
   inner_join(LTERtemp)
 
-# Calculate bicarbonate
+################################# Calculate bicarbonate #################################
 df2 = df %>% 
   rowwise() |>
   mutate(bicarbonate = carbonate(TEMP = temp, DIC = dic, pH = ph, output = 'mg') |> pull(bicarbonate_mgkg)) |> 
@@ -111,7 +116,7 @@ ggplot(df.meq) +
   geom_abline() +
   facet_wrap(~lakeid, scales = 'free')
 
-# Output datasets
+################################# Output datasets #################################
 output.mg = df2 |> left_join(lakelocations)
 write_csv(output.mg, 'NTLions_mg.csv')
 
